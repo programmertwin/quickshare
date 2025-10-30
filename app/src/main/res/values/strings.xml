@@ -1,1 +1,7 @@
+<resources>
+    <string name="app_name">QuickShare</string>
+    <string name="toast_saved">✅ فایل ذخیره شد</string>
+    <string name="toast_error">❌ خطا در ذخیره فایل</string>
+</resources>
+
 
