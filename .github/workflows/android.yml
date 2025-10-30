@@ -1,4 +1,4 @@
-name: Android CI
+name: Android CI (no-wrapper)
 
 on:
   push:
@@ -8,11 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Show workspace (debug)
@@ -28,30 +26,25 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # نصب Android SDK و ابزارها
-      - name: Install Android SDK Commandline tools
-        run: |
-          sudo mkdir -p $ANDROID_SDK_ROOT
-          sudo chown -R $USER:$USER $ANDROID_SDK_ROOT
-          yes | sudo /usr/local/lib/android/sdkmanager --licenses || true 2>/dev/null || true
-        shell: bash
+      # نصب Android SDK + sdkmanager
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
+      # نصب پکیج‌های لازم برای compileSdk 34
       - name: Install required SDK packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           yes | sdkmanager --licenses
-        shell: bash
 
-      # اطمینان از LF و مجوز اجرا برای gradlew
-      - name: Normalize EOL for gradlew (fix CRLF)
-        run: sed -i 's/\r$//' gradlew
+      # ستاپ Gradle بدون wrapper (نسخه مشخص)
+      - name: Set up Gradle 8.2
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.2
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      # بیلد با لاگ کامل
+      # بیلد با Gradle (نه ./gradlew)
       - name: Build Debug APK
-        run: ./gradlew --stacktrace --info assembleDebug
+        run: gradle --stacktrace --info assembleDebug
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -60,7 +53,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Build Release APK
-        run: ./gradlew --stacktrace --info assembleRelease
+        run: gradle --stacktrace --info assembleRelease
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
