@@ -1,23 +1,21 @@
-# Build outputs
-/build/
-app/build/
-
 # Gradle
 .gradle/
+build/
 **/build/
 local.properties
 
-# IDE
+# Android Studio / IntelliJ
 .idea/
 *.iml
 captures/
+.externalNativeBuild/
 
-# Logs & temp
+# Logs and temp files
 *.log
 *.tmp
 *.temp
 
-# Keystores
+# Keystore files (نباید عمومی بشن)
 *.jks
 *.keystore
 
@@ -25,7 +23,7 @@ captures/
 *.apk
 *.ap_
 
-# System
+# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
