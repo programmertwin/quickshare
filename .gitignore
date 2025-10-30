@@ -1,5 +1,3 @@
-# فایل‌ها و پوشه‌هایی که نباید در Git ذخیره شوند
-
 # Build outputs
 /build/
 app/build/
@@ -9,40 +7,25 @@ app/build/
 **/build/
 local.properties
 
-# Log & temp files
+# IDE
+.idea/
+*.iml
+captures/
+
+# Logs & temp
 *.log
 *.tmp
 *.temp
 
-# IDEs (Android Studio / IntelliJ)
-.idea/
-*.iml
-.DS_Store
-captures/
-
-# Keystore files (کلیدهای امضا، نباید در GitHub قرار بگیرند)
+# Keystores
 *.jks
 *.keystore
 
-# Gradle caches
-.gradle/
-**/.gradle/
-
-# Output APKs
+# APKs
 *.apk
 *.ap_
 
-# System files
+# System
+.DS_Store
 Thumbs.db
-*.orig
-
-# Kotlin metadata
-*.kotlin_metadata
-
-# Android profiling files
-*.hprof
-
-# OS-specific
-ehthumbs.db
 desktop.ini
-
