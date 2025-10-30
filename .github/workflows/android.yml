@@ -1,1 +1,62 @@
+name: Android CI (no-wrapper)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show workspace (debug)
+        run: |
+          pwd
+          ls -la
+          echo "---- settings.gradle ----"
+          sed -n '1,200p' settings.gradle || true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # نصب Android SDK و ابزارها
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK packages
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          yes | sdkmanager --licenses
+
+      # نصب Gradle بدون Wrapper
+      - name: Set up Gradle 8.2
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.2
+
+      - name: Build Debug APK
+        run: gradle --stacktrace --info --warning-mode all :app:assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickShare-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Build Release APK
+        run: gradle --stacktrace --info --warning-mode all :app:assembleRelease
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickShare-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+
 
