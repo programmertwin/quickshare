@@ -37,5 +37,3 @@ DEFAULT_JVM_OPTS=""
 
 # Execute Gradle Wrapper
 exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$WRAPPER_JAR" org.gradle.wrapper.GradleWrapperMain "$@"
-
-
