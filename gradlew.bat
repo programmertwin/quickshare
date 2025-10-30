@@ -1,9 +1,6 @@
 @echo off
-:: ##########################################################################
 :: Gradle startup script for Windows
-:: ##########################################################################
 
-@rem Attempt to find Java
 if defined JAVA_HOME (
     set JAVA_EXE=%JAVA_HOME%\bin\java.exe
     if exist "%JAVA_EXE%" goto init
@@ -14,17 +11,13 @@ if defined JAVA_HOME (
 )
 
 :init
-@rem Check if Java exists
 "%JAVA_EXE%" -version >NUL 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Java not found in your PATH or JAVA_HOME.
     exit /b 1
 )
 
-@rem Set local environment
 set APP_HOME=%~dp0
 set WRAPPER_JAR=%APP_HOME%gradle\wrapper\gradle-wrapper.jar
 set DEFAULT_JVM_OPTS=
-
-@rem Execute Gradle Wrapper
 "%JAVA_EXE%" %DEFAULT_JVM_OPTS% -classpath "%WRAPPER_JAR%" org.gradle.wrapper.GradleWrapperMain %*
