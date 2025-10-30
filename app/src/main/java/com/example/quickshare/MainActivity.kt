@@ -1,94 +1,137 @@
 package com.example.quickshare
 
-import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 
 class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // بررسی مجوز دسترسی به حافظه
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                ),
-                1
-            )
-        } else {
-            handleIntent(intent)
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == 1 && grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            handleIntent(intent)
-        } else {
-            Toast.makeText(this, "❌ مجوز دسترسی به حافظه رد شد", Toast.LENGTH_LONG).show()
-            finish()
-        }
+        handleIntent(intent)
+        finish()
     }
 
     private fun handleIntent(intent: Intent) {
         when (intent.action) {
             Intent.ACTION_SEND -> {
-                intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.let { uri ->
-                    saveFile(uri)
-                }
+                val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                if (uri != null) saveFile(uri) else toast("❌ فایل نامعتبر است")
             }
-
             Intent.ACTION_SEND_MULTIPLE -> {
                 val uris = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-                uris?.forEach { saveFile(it) }
+                if (uris.isNullOrEmpty()) {
+                    toast("❌ فایلی دریافت نشد")
+                } else {
+                    uris.forEach { saveFile(it) }
+                }
             }
+            else -> toast("⚠️ عملیات پشتیبانی نمی‌شود")
         }
-        finish()
     }
 
-    private fun saveFile(uri: Uri) {
+    private fun saveFile(sourceUri: Uri) {
         try {
-            val inputStream: InputStream? = contentResolver.openInputStream(uri)
-            val backupDir = File(Environment.getExternalStorageDirectory(), "WA_Backup")
+            val inStream: InputStream? = contentResolver.openInputStream(sourceUri)
+            if (inStream == null) {
+                toast("❌ دسترسی به ورودی ممکن نشد")
+                return
+            }
 
-            if (!backupDir.exists()) backupDir.mkdirs()
+            val fileName = resolveFileName(sourceUri) ?: "shared_file"
+            val success = if (Build.VERSION.SDK_INT >= 29) {
+                // Android 10+ : MediaStore → Downloads/WA_Backup
+                saveViaMediaStore(inStream, fileName)
+            } else {
+                // Android 7–9 : مستقیم در /sdcard/WA_Backup
+                saveLegacyExternal(inStream, fileName)
+            }
 
-            val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "shared_file"
-            val outFile = File(backupDir, fileName)
-
-            val outputStream = FileOutputStream(outFile)
-            inputStream?.copyTo(outputStream)
-
-            inputStream?.close()
-            outputStream.close()
-
-            Toast.makeText(this, "✅ فایل در پوشه WA_Backup ذخیره شد", Toast.LENGTH_LONG).show()
+            if (success) {
+                toast("✅ ذخیره شد: WA_Backup/$fileName")
+            } else {
+                toast("❌ خطا در ذخیره فایل")
+            }
         } catch (e: Exception) {
-            Toast.makeText(this, "❌ خطا در ذخیره فایل", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
+            toast("❌ خطا در ذخیره فایل")
         }
     }
+
+    // MediaStore: ذخیره در Download/WA_Backup بدون نیاز به دسترسی خاص
+    private fun saveViaMediaStore(inStream: InputStream, fileName: String): Boolean {
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, guessMime(fileName))
+            // مسیر نسبی داخل پوشه Downloads:
+            put(MediaStore.Downloads.RELATIVE_PATH, "Download/WA_Backup/")
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val itemUri = contentResolver.insert(collection, values) ?: return false
+        var out: OutputStream? = null
+        return try {
+            out = contentResolver.openOutputStream(itemUri)
+            if (out == null) return false
+            inStream.copyTo(out)
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            contentResolver.update(itemUri, values, null, null)
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            try { out?.close() } catch (_: Exception) {}
+            try { inStream.close() } catch (_: Exception) {}
+        }
+    }
+
+    // Legacy: ذخیره مستقیم در /sdcard/WA_Backup برای API <29
+    private fun saveLegacyExternal(inStream: InputStream, fileName: String): Boolean {
+        val dir = File(Environment.getExternalStorageDirectory(), "WA_Backup")
+        if (!dir.exists()) dir.mkdirs()
+        val outFile = File(dir, fileName)
+        var out: OutputStream? = null
+        return try {
+            out = FileOutputStream(outFile)
+            inStream.copyTo(out)
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            try { out?.close() } catch (_: Exception) {}
+            try { inStream.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun resolveFileName(uri: Uri): String? {
+        // تلاش ساده برای نام فایل از مسیر
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
+
+    private fun guessMime(name: String): String {
+        val lower = name.lowercase()
+        return when {
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".png") -> "image/png"
+            lower.endsWith(".gif") -> "image/gif"
+            lower.endsWith(".mp4") -> "video/mp4"
+            lower.endsWith(".pdf") -> "application/pdf"
+            lower.endsWith(".zip") -> "application/zip"
+            lower.endsWith(".apk") -> "application/vnd.android.package-archive"
+            else -> "application/octet-stream"
+        }
+    }
+
+    private fun toast(msg: String) =
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 }
