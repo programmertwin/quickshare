@@ -1,39 +1,62 @@
-#!/usr/bin/env sh
+name: Android CI
 
-##############################################################################
-##
-##  Gradle start up script for UN*X
-##
-##############################################################################
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
-# Attempt to locate java binary
-if [ -n "$JAVA_HOME" ] ; then
-    if [ -x "$JAVA_HOME/bin/java" ] ; then
-        JAVACMD="$JAVA_HOME/bin/java"
-    else
-        echo "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME" >&2
-        exit 1
-    fi
-else
-    JAVACMD="java"
-fi
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-# Verify that Java exists
-if [ ! -x "$JAVACMD" ] ; then
-    echo "ERROR: Java not found in your PATH or JAVA_HOME" >&2
-    exit 1
-fi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-# Determine the location of this script
-APP_HOME=$(cd "$(dirname "$0")"; pwd)
+      - name: Show workspace (debug)
+        run: |
+          pwd
+          ls -la
+          echo "---- settings.gradle ----"
+          sed -n '1,200p' settings.gradle || true
 
-# Locate gradle-wrapper.jar
-APP_NAME="Gradle"
-APP_BASE_NAME=$(basename "$0")
-WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-# Set JVM options
-DEFAULT_JVM_OPTS=""
+      # نصب Android SDK + cmdline-tools (sdkmanager) به‌صورت استاندارد
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-# Execute Gradle Wrapper
-exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$WRAPPER_JAR" org.gradle.wrapper.GradleWrapperMain "$@"
+      # نصب پکیج‌های لازم برای compileSdk 34
+      - name: Install required SDK packages
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          yes | sdkmanager --licenses
+
+      # اطمینان از LF و مجوز اجرا برای gradlew
+      - name: Normalize EOL for gradlew (fix CRLF)
+        run: sed -i 's/\r$//' gradlew
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew --stacktrace --info assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickShare-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Build Release APK
+        run: ./gradlew --stacktrace --info assembleRelease
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickShare-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
