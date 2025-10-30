@@ -1,0 +1,4 @@
+// تنظیمات سطح پروژه QuickShare
+
+rootProject.name = "QuickShare"
+include(":app")
