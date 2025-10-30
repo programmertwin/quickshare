@@ -1,0 +1,9 @@
+<resources>
+    <!-- نام اپلیکیشن که در لیست Share و تنظیمات گوشی نمایش داده می‌شود -->
+    <string name="app_name">QuickShare</string>
+
+    <!-- پیام‌های قابل ترجمه (در صورت نیاز به چند زبان) -->
+    <string name="toast_saved">✅ فایل در پوشه WA_Backup ذخیره شد</string>
+    <string name="toast_error">❌ خطا در ذخیره فایل</string>
+    <string name="toast_permission_denied">❌ مجوز دسترسی به حافظه رد شد</string>
+</resources>
