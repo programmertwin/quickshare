@@ -1,0 +1,11 @@
+# تنظیم خط پایان (End of Line) برای پروژه QuickShare
+
+# فایل‌های متنی معمولی را خودکار تنظیم کن
+* text=auto
+
+# اطمینان از اینکه فایل‌های اجرایی لینوکسی با LF ذخیره می‌شوند
+*.sh text eol=lf
+gradlew text eol=lf
+
+# برای اطمینان از عملکرد صحیح GitHub Actions
+*.yml text eol=lf
